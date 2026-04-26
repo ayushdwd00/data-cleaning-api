@@ -7,9 +7,10 @@ from modules import (
     plot_missing_values, plot_outliers, plot_health_gauge,
     plot_top_missing_columns,
     prepare_download,
+    generate_insights
 )
 
-st.set_page_config(page_title="DataClean", layout="wide")
+st.set_page_config(page_title="DataClean", page_icon=None, layout="wide")
 
 def generate_insights(profile_before, profile_after):
     insights = []
@@ -49,16 +50,40 @@ def generate_insights(profile_before, profile_after):
 
 # SIDEBAR
 with st.sidebar:
-    st.title("⚙ Settings")
+    st.title("⚙️ Settings")
     st.markdown("---")
+
+    # Missing value strategy
     strategy = st.radio("Missing Value Strategy", STRATEGIES, index=1)
+
     st.markdown("---")
-    st.caption("Auto-applied: Remove Duplicates · Trim Whitespace · Normalize Casing · Detect Outliers (IQR)")
+
+    # ✅ NEW: Cleaning controls
+    st.subheader("🧹 Cleaning Options")
+
+    remove_duplicates = st.checkbox("Remove duplicate rows", value=True)
+    remove_empty = st.checkbox("Remove empty columns", value=True)
+    remove_constants = st.checkbox("Remove constant columns", value=True)
+    fix_types = st.checkbox("Fix data types", value=True)
+
+    st.markdown("---")
+
+    st.caption("Auto-applied: Trim whitespace · Normalize casing · Detect outliers (IQR)")
     st.caption("All processing happens in your session. No data is stored.")
 
 # HEADER
 st.title("DataClean")
 st.caption("Upload a raw dataset → auto-clean → quality report → download")
+
+st.markdown("""
+📌 **What this app does**
+
+• Automatically cleans messy datasets  
+• Handles missing values, duplicates, and data types  
+• Generates quality insights and health score  
+• Lets you download a cleaned, analysis-ready dataset  
+""")
+
 st.markdown("---")
 
 # UPLOAD
@@ -131,98 +156,172 @@ with col1:
 with col2:
     st.caption(f"Strategy: **{strategy}**")
 
-if not run:
-    st.stop()
-
 # PIPELINE
-progress = st.progress(0, text="Scanning dataset…")
-profile_before = profile_data(df_raw)
-progress.progress(25, text="Profiling complete…")
+if run:
 
-df_clean, log = clean_pipeline(df_raw, strategy, drop_low_null_cols=drop_low_null_cols)
-progress.progress(70, text="Cleaning done, generating report…")
+    progress = st.progress(0, text="Scanning dataset...")
 
-profile_after = profile_data(df_clean)
-progress.progress(100, text="✓ Pipeline complete!")
-progress.empty()
+    profile_before = profile_data(df_raw)
+    progress.progress(25, text="Profiling complete...")
 
-st.markdown("---")
+    df_clean, log = clean_pipeline(
+        df_raw,
+        strategy=strategy,
+        drop_low_null_cols=drop_low_null_cols,
+        remove_duplicates=remove_duplicates,
+        remove_empty=remove_empty,
+        remove_constants=remove_constants,
+        fix_types=fix_types
+    )
 
-# CLEANING LOG
-st.subheader("🔧 Cleaning Log")
-for entry in log:
-    st.markdown(entry)
+    progress.progress(70, text="Cleaning done, generating report...")
 
-st.markdown("---")
+    profile_after = profile_data(df_clean)
+    progress.progress(100, text="✓ Pipeline complete!")
+    progress.empty()
 
-# HEALTH SCORE
-st.subheader("📊 Data Health Score")
+    # ✅ STORE RESULTS
+    st.session_state["df_clean"] = df_clean
+    st.session_state["log"] = log
+    st.session_state["profile_before"] = profile_before
+    st.session_state["profile_after"] = profile_after
 
+# ✅ DISPLAY (OUTSIDE BUTTON)
+if all(k in st.session_state for k in ["df_clean", "log", "profile_before", "profile_after"]):
 
-g1, g2, g3 = st.columns([2, 1, 2])
-with g1:
-    st.plotly_chart(plot_health_gauge(profile_before["health_score"], "BEFORE"), use_container_width=True)
-with g2:
-    st.markdown("<div style='text-align:center;font-size:2rem;padding-top:40px;'>→</div>", unsafe_allow_html=True)
-with g3:
-    st.plotly_chart(plot_health_gauge(profile_after["health_score"], "AFTER"), use_container_width=True)
+    df_clean = st.session_state["df_clean"]
+    log = st.session_state["log"]
+    profile_before = st.session_state["profile_before"]
+    profile_after = st.session_state["profile_after"]
 
-st.markdown("---")
+    st.markdown("---")
+
+    # CLEANING LOG
+    st.subheader("🛠 Cleaning Log")
+    for entry in log:
+        st.markdown(entry)
+
+    st.markdown("---")
+
+    # HEALTH SCORE
+    st.subheader("📊 Data Health Score")
+    g1, g2, g3 = st.columns([2, 1, 2])
+
+    with g1:
+        st.plotly_chart(
+            plot_health_gauge(profile_before["health_score"], "BEFORE"),
+            use_container_width=True
+        )
+
+    with g2:
+        st.markdown(
+            "<div style='text-align:center;font-size:2rem;padding-top:40px;'>→</div>",
+            unsafe_allow_html=True
+        )
+
+    with g3:
+        st.plotly_chart(
+            plot_health_gauge(profile_after["health_score"], "AFTER"),
+            use_container_width=True
+        )
+
+    st.markdown("---")
 
 # SUMMARY STATS
-st.subheader("📋 Summary Stats")
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Total Rows", f"{profile_after['rows']:,}", delta=f"{profile_after['rows'] - profile_before['rows']:+,}")
-c2.metric("Columns", profile_after["cols"])
-c3.metric("Duplicates Removed", profile_before["duplicates"])
-c4.metric("Missing Cells (Before)", profile_before["total_missing"],
-          delta=f"-{profile_before['total_missing'] - profile_after['total_missing']}", delta_color="inverse")
+if all(k in st.session_state for k in ["profile_before", "profile_after"]):
 
-st.markdown("---")
+    profile_before = st.session_state["profile_before"]
+    profile_after = st.session_state["profile_after"]
+
+    st.subheader("📋 Summary Stats")
+    c1, c2, c3, c4 = st.columns(4)
+
+    c1.metric(
+        "Total Rows",
+        f"{profile_after['rows']:,}",
+        delta=f"{profile_after['rows'] - profile_before['rows']:+,}"
+    )
+
+    c2.metric(
+        "Columns",
+        profile_after["cols"]
+    )
+
+    c3.metric(
+        "Duplicates Removed",
+        profile_before["duplicates"]
+    )
+
+    c4.metric(
+        "Missing Cells (Before)",
+        profile_before["total_missing"],
+        delta=f"{profile_before['total_missing'] - profile_after['total_missing']}",
+        delta_color="inverse"
+    )
+
+    st.markdown("---")
 
 
-# 🧠 INSIGHTS
-st.subheader("🧠 Insights")
+# 🧠 INSIGHTS + 📊 CHARTS
+if all(k in st.session_state for k in ["profile_before", "profile_after"]):
 
-insights = generate_insights(profile_before, profile_after)
+    profile_before = st.session_state["profile_before"]
+    profile_after = st.session_state["profile_after"]
 
-if not insights:
-    st.info("No significant insights detected.")
-else:
-    for level, insight in insights:
-        if level == "success":
-            st.success(insight)
-        elif level == "warning":
-            st.warning(insight)
+    # -------------------
+    # 🧠 INSIGHTS
+    # -------------------
+    st.subheader("🧠 Insights")
+
+    insights = generate_insights(profile_before, profile_after)
+
+    if not insights:
+        st.info("No significant insights detected.")
+    else:
+        for level, insight in insights:
+            if level == "success":
+                st.success(insight)
+            elif level == "warning":
+                st.warning(insight)
+            else:
+                st.info(insight)
+
+    st.markdown("---")
+
+    # -------------------
+    # 📊 CHARTS
+    # -------------------
+    st.subheader("📈 Quality Charts")
+    ch1, ch2 = st.columns(2)
+
+    # 🔹 Missing Values Chart
+    with ch1:
+        st.caption("Missing Values per Column")
+        fig = plot_missing_values(
+            profile_before["missing_per_col"],
+            dict(profile_after["missing_per_col"])
+        )
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info(insight)
+            st.success("✓ No missing values detected.")
 
-st.markdown("---")
+    # 🔹 Outliers Chart
+    with ch2:
+        st.caption("Outliers per Numeric Column (IQR)")
+        fig = plot_outliers(
+            profile_before["outlier_counts"],
+            profile_after["outlier_counts"]
+        )
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.success("✓ No outliers detected.")
+
+    st.markdown("---")
 
 
-# CHARTS
-st.subheader("📈 Quality Charts")
-ch1, ch2 = st.columns(2)
-
-with ch1:
-    st.caption("Missing Values per Column")
-    fig = plot_missing_values(profile_before["missing_per_col"], dict(profile_after["missing_per_col"]))
-    if fig:
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.success("✓ No missing values detected.")
-
-with ch2:
-    st.caption("Outliers per Numeric Column (IQR)")
-    fig = plot_outliers(profile_before["outlier_counts"], profile_after["outlier_counts"])
-    if fig:
-     st.plotly_chart(fig, use_container_width=True)
-    else:
-     st.success("✓ No outliers detected.")
-
-st.markdown("---")
-
-# 📊 MISSING DATA INSIGHTS
+# 📊 MISSING DATA INSIGHTS (uses raw df, so no session_state needed)
 st.subheader("📊 Missing Data Insights")
 
 fig = plot_top_missing_columns(df_raw)
@@ -234,17 +333,43 @@ else:
 
 st.markdown("---")
 
-# CLEANED PREVIEW
-st.subheader("✅ Cleaned Dataset Preview")
-st.dataframe(df_clean.head(50), use_container_width=True)
 
-st.markdown("---")
+# ✅ CLEANED PREVIEW + DOWNLOAD (FIXED)
+if all(k in st.session_state for k in ["df_clean", "profile_after"]):
 
-# DOWNLOAD
-st.subheader("⬇ Download")
-buf, mime, ext = prepare_download(df_clean, fmt)
-d1, d2 = st.columns([2, 5])
-with d1:
-    st.download_button(f"⬇ Download Cleaned .{ext}", buf, f"cleaned_{uploaded.name}", mime, use_container_width=True)
-with d2:
-    st.caption(f"{profile_after['rows']:,} rows · {profile_after['cols']} columns · {ext.upper()}")
+    df_clean = st.session_state["df_clean"]
+    profile_after = st.session_state["profile_after"]
+
+    # -------------------
+    # PREVIEW
+    # -------------------
+    st.subheader("✅ Cleaned Dataset Preview")
+    st.dataframe(df_clean.head(50), use_container_width=True)
+
+    st.markdown("---")
+
+    # -------------------
+    # DOWNLOAD
+    # -------------------
+    st.subheader("⬇ Download")
+
+    buf, mime, ext = prepare_download(df_clean, fmt)
+
+    d1, d2 = st.columns([2, 5])
+
+    with d1:
+        st.download_button(
+            f"⬇ Download Cleaned .{ext}",
+            buf,
+            f"cleaned_{uploaded.name}",
+            mime,
+            use_container_width=True
+        )
+
+    with d2:
+        st.caption(
+            f"{profile_after['rows']:,} rows · {profile_after['cols']} columns · {ext.upper()}"
+        )
+
+else:
+    st.info("Run the cleaning pipeline to preview and download cleaned data.")

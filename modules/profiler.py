@@ -41,3 +41,55 @@ def _get_outlier_counts(df, numeric_cols):
         mask = (df[col] < q1 - 1.5 * iqr) | (df[col] > q3 + 1.5 * iqr)
         counts[col] = int(mask.sum())
     return counts
+
+def generate_insights(profile_before, profile_after):
+    insights = []
+
+    before_missing = profile_before["total_missing"]
+    after_missing = profile_after["total_missing"]
+
+    before_rows = profile_before["rows"]
+    after_rows = profile_after["rows"]
+
+    before_score = profile_before["health_score"]
+    after_score = profile_after["health_score"]
+
+    duplicates = profile_before["duplicates"]
+
+    # Missing values
+    if after_missing == 0:
+        insights.append(("success", f"All missing values cleaned ({before_missing} → 0)."))
+    else:
+        reduction = before_missing - after_missing
+        insights.append(("info", f"Missing values reduced by {reduction} ({before_missing} → {after_missing})."))
+
+    # Duplicates
+    if duplicates > 0:
+        insights.append(("warning", f"{duplicates} duplicate rows were found and handled."))
+    else:
+        insights.append(("info", "No duplicate rows found."))
+
+    # Rows removed
+    if after_rows < before_rows:
+        removed = before_rows - after_rows
+        insights.append(("warning", f"{removed} rows removed during cleaning."))
+    else:
+        insights.append(("info", "No rows were removed."))
+
+    # Health score
+    improvement = after_score - before_score
+    if improvement > 0:
+        insights.append(("success", f"Data health improved by +{improvement} ({before_score} → {after_score})."))
+    else:
+        insights.append(("info", "No change in data health score."))
+
+    # Top missing columns
+    missing_cols = profile_before["missing_per_col"]
+    top_cols = missing_cols[missing_cols > 0].sort_values(ascending=False).head(3)
+
+    if not top_cols.empty:
+        cols = ", ".join(top_cols.index)
+        insights.append(("info", f"Most missing data was in: {cols}"))
+
+    return insights
+

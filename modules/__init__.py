@@ -1,5 +1,5 @@
 from .loader import load_file
-from .profiler import profile_data, get_null_percentages
+from .profiler import profile_data, get_null_percentages, generate_insights
 from .cleaner import clean_pipeline, STRATEGIES
 from .visualizer import (
     plot_missing_values,
