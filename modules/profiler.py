@@ -33,16 +33,23 @@ def get_null_percentages(df):
 
 
 def _get_outlier_counts(df, numeric_cols):
-    """Detect outliers per numeric column using the IQR method."""
+    """Detect outliers per numeric column using the IQR method.
+    NaNs are excluded before computing quantiles to avoid skew."""
     counts = {}
     for col in numeric_cols:
-        q1, q3 = df[col].quantile(0.25), df[col].quantile(0.75)
+        col_clean = df[col].dropna()
+        if col_clean.empty:
+            counts[col] = 0
+            continue
+        q1, q3 = col_clean.quantile(0.25), col_clean.quantile(0.75)
         iqr = q3 - q1
         mask = (df[col] < q1 - 1.5 * iqr) | (df[col] > q3 + 1.5 * iqr)
         counts[col] = int(mask.sum())
     return counts
 
+
 def generate_insights(profile_before, profile_after):
+    """Generate human-readable insight messages comparing before/after profiles."""
     insights = []
 
     before_missing = profile_before["total_missing"]
@@ -65,14 +72,14 @@ def generate_insights(profile_before, profile_after):
 
     # Duplicates
     if duplicates > 0:
-        insights.append(("warning", f"{duplicates} duplicate rows were found and handled."))
+        insights.append(("warning", f"{duplicates} duplicate row(s) were found and handled."))
     else:
         insights.append(("info", "No duplicate rows found."))
 
     # Rows removed
     if after_rows < before_rows:
         removed = before_rows - after_rows
-        insights.append(("warning", f"{removed} rows removed during cleaning."))
+        insights.append(("warning", f"{removed} row(s) removed during cleaning."))
     else:
         insights.append(("info", "No rows were removed."))
 
@@ -83,13 +90,11 @@ def generate_insights(profile_before, profile_after):
     else:
         insights.append(("info", "No change in data health score."))
 
-    # Top missing columns
+    # Top missing columns (before cleaning)
     missing_cols = profile_before["missing_per_col"]
     top_cols = missing_cols[missing_cols > 0].sort_values(ascending=False).head(3)
-
     if not top_cols.empty:
         cols = ", ".join(top_cols.index)
         insights.append(("info", f"Most missing data was in: {cols}"))
 
     return insights
-

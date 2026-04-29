@@ -12,7 +12,14 @@ def load_file(uploaded_file):
 
     elif name.endswith(".json"):
         content = json.load(uploaded_file)
-        df = pd.DataFrame(content if isinstance(content, list) else [content])
+        # Unwrap common top-level wrapper keys (e.g. {"data": [...]})
+        if isinstance(content, dict):
+            list_vals = [v for v in content.values() if isinstance(v, list)]
+            if list_vals:
+                content = list_vals[0]
+            else:
+                content = [content]
+        df = pd.DataFrame(content)
         fmt = "json"
 
     else:
