@@ -12,19 +12,19 @@ from modules import (
 
 st.set_page_config(page_title="DataClean", page_icon=None, layout="wide")
 
-# ---------------------------------------------------------------------------
+
 # Keys that must exist in session_state for results sections to render
-# ---------------------------------------------------------------------------
+
 RESULT_KEYS = ("df_clean", "log", "profile_before", "profile_after")
 
-# ---------------------------------------------------------------------------
+
 # SIDEBAR
-# ---------------------------------------------------------------------------
+
 with st.sidebar:
     st.title("⚙️ Settings")
     st.markdown("---")
 
-    # --- Missing value strategy (two-step) ---
+    # Missing value strategy (two-step)
     st.subheader("Missing Value Strategy")
 
     null_action = st.radio(
@@ -65,7 +65,7 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # --- Cleaning options ---
+    # Cleaning options
     st.subheader("🧹 Cleaning Options")
     remove_duplicates = st.checkbox("Remove duplicate rows", value=True)
     remove_empty     = st.checkbox("Remove empty columns", value=True)
@@ -76,9 +76,9 @@ with st.sidebar:
     st.caption("Auto-applied: Trim whitespace · Normalize casing · Detect outliers (IQR)")
     st.caption("All processing happens in your session. No data is stored.")
 
-# ---------------------------------------------------------------------------
+
 # HEADER
-# ---------------------------------------------------------------------------
+
 st.title("DataClean")
 st.caption("Upload a raw dataset → auto-clean → quality report → download")
 
@@ -93,18 +93,16 @@ st.markdown("""
 
 st.markdown("---")
 
-# ---------------------------------------------------------------------------
 # UPLOAD
-# ---------------------------------------------------------------------------
+
 uploaded = st.file_uploader("Upload CSV or JSON", type=["csv", "json"], label_visibility="collapsed")
 
 if not uploaded:
     st.info("📂 Upload a **CSV** or **JSON** file to get started.")
     st.stop()
 
-# ---------------------------------------------------------------------------
 # LOAD
-# ---------------------------------------------------------------------------
+
 try:
     df_raw, fmt = load_file(uploaded)
 except Exception as e:
@@ -118,11 +116,9 @@ with st.expander("👁 Preview Raw Data"):
 
 st.markdown("---")
 
-# ---------------------------------------------------------------------------
 # LOW NULL CHECK
-# ---------------------------------------------------------------------------
-null_pcts = get_null_percentages(df_raw)
-low_null_cols = null_pcts[null_pcts.between(0.01, 2.0)]
+
+null_pcts = get_nul
 drop_low_null_cols = None
 
 if not low_null_cols.empty:
@@ -157,18 +153,16 @@ if not low_null_cols.empty:
 
     st.markdown("---")
 
-# ---------------------------------------------------------------------------
 # RUN BUTTON
-# ---------------------------------------------------------------------------
+
 col1, col2 = st.columns([2, 5])
 with col1:
     run = st.button("▶ Run Cleaning Pipeline", use_container_width=True)
 with col2:
     st.caption(f"Strategy: **{strategy}**")
 
-# ---------------------------------------------------------------------------
 # PIPELINE
-# ---------------------------------------------------------------------------
+
 if run:
     progress = st.progress(0, text="Scanning dataset...")
 
@@ -197,9 +191,9 @@ if run:
     st.session_state["profile_before"] = profile_before
     st.session_state["profile_after"]  = profile_after
 
-# ---------------------------------------------------------------------------
+
 # RESULTS  (render from session state so they survive widget interactions)
-# ---------------------------------------------------------------------------
+
 if all(k in st.session_state for k in RESULT_KEYS):
 
     df_clean       = st.session_state["df_clean"]
@@ -209,14 +203,14 @@ if all(k in st.session_state for k in RESULT_KEYS):
 
     st.markdown("---")
 
-    # --- Cleaning log ---
+    # Cleaning log 
     st.subheader("🛠 Cleaning Log")
     for entry in log:
         st.markdown(entry)
 
     st.markdown("---")
 
-    # --- Health gauge ---
+    # Health gauge 
     st.subheader("📊 Data Health Score")
     g1, g2, g3 = st.columns([2, 1, 2])
 
@@ -238,7 +232,7 @@ if all(k in st.session_state for k in RESULT_KEYS):
 
     st.markdown("---")
 
-    # --- Summary stats ---
+    # Summary stats 
     st.subheader("📋 Summary Stats")
     c1, c2, c3, c4 = st.columns(4)
 
@@ -258,7 +252,7 @@ if all(k in st.session_state for k in RESULT_KEYS):
 
     st.markdown("---")
 
-    # --- Insights ---
+    # Insights 
     st.subheader("🧠 Insights")
     insights = generate_insights(profile_before, profile_after)
 
@@ -275,7 +269,7 @@ if all(k in st.session_state for k in RESULT_KEYS):
 
     st.markdown("---")
 
-    # --- Charts ---
+    #  Charts 
     st.subheader("📈 Quality Charts")
     ch1, ch2 = st.columns(2)
 
@@ -303,9 +297,8 @@ if all(k in st.session_state for k in RESULT_KEYS):
 
     st.markdown("---")
 
-# ---------------------------------------------------------------------------
 # MISSING DATA INSIGHTS  (raw dataset — shown only when a file is loaded)
-# ---------------------------------------------------------------------------
+
 st.subheader("📊 Missing Data Insights")
 fig = plot_top_missing_columns(df_raw)
 if fig:
@@ -315,9 +308,9 @@ else:
 
 st.markdown("---")
 
-# ---------------------------------------------------------------------------
+
 # CLEANED PREVIEW + DOWNLOAD
-# ---------------------------------------------------------------------------
+
 if all(k in st.session_state for k in RESULT_KEYS):
 
     df_clean      = st.session_state["df_clean"]
