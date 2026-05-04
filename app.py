@@ -118,7 +118,8 @@ st.markdown("---")
 
 # LOW NULL CHECK
 
-null_pcts = get_nul
+null_pcts = get_null_percentages(df_raw)
+low_null_cols = null_pcts[null_pcts < 2.0]
 drop_low_null_cols = None
 
 if not low_null_cols.empty:
