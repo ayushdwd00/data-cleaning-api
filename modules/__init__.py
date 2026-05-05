@@ -8,3 +8,4 @@ from .visualizer import (
     plot_top_missing_columns,
 )
 from .downloader import prepare_download
+from .eda import render_eda

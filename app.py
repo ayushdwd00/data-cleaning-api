@@ -8,6 +8,7 @@ from modules import (
     plot_top_missing_columns,
     prepare_download,
     generate_insights,
+    render_eda,
 )
 
 st.set_page_config(page_title="DataClean", page_icon=None, layout="wide")
@@ -298,6 +299,10 @@ if all(k in st.session_state for k in RESULT_KEYS):
 
     st.markdown("---")
 
+    st.subheader("🔬 Exploratory Data Analysis")
+    st.caption("All charts below run on the cleaned dataset.")
+    render_eda(df_clean)
+
 # MISSING DATA INSIGHTS  (raw dataset — shown only when a file is loaded)
 
 st.subheader("📊 Missing Data Insights")
@@ -316,6 +321,8 @@ if all(k in st.session_state for k in RESULT_KEYS):
 
     df_clean      = st.session_state["df_clean"]
     profile_after = st.session_state["profile_after"]
+
+
 
     st.subheader("✅ Cleaned Dataset Preview")
     st.dataframe(df_clean.head(50), use_container_width=True)
